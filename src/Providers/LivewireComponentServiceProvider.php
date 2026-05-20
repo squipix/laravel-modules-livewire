@@ -3,6 +3,7 @@
 namespace Mhmiton\LaravelModulesLivewire\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Mhmiton\LaravelModulesLivewire\Support\Decomposer;
@@ -144,7 +145,36 @@ class LivewireComponentServiceProvider extends ServiceProvider
             return app(ModuleVoltComponentRegistry::class)->resolveComponent($name);
         });
 
-        // Register ModuleVoltViewFactory
+        $this->registerModuleVoltViewFactory();
+    }
+
+    protected function registerComponentDirectory(string $directory, string $namespace, string $aliasPrefix)
+    {
+        if (! File::isDirectory($directory)) {
+            return false;
+        }
+
+        $alias = Str::before($aliasPrefix, '::');
+
+        Livewire::addLocation(
+            classNamespace: $namespace
+        );
+
+        Livewire::addNamespace(
+            namespace: $alias,
+            classNamespace: $namespace,
+            classPath: $directory
+        );
+
+        return true;
+    }
+
+    protected function registerModuleVoltViewFactory()
+    {
+        if (! class_exists(\Livewire\Volt\Volt::class)) {
+            return false;
+        }
+
         $this->app->extend('view', function ($view, $app) {
             $factory = new ModuleVoltViewFactory(
                 $app['view.engine.resolver'],
@@ -172,5 +202,7 @@ class LivewireComponentServiceProvider extends ServiceProvider
         });
 
         \View::clearResolvedInstance('view');
+
+        return true;
     }
 }

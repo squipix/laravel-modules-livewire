@@ -64,11 +64,14 @@ class ModuleVoltComponentRegistry
     {
         $moduleComponentData = $this->getModuleComponentData(Str::before($aliasPrefix, '::'));
 
-        $registerableComponents = collect($viewNamespaces)
-            ->map(function ($viewNamespace) use ($path, $aliasPrefix, $moduleComponentData) {
-                $viewPath = data_get($moduleComponentData, 'view_path').'/'.$viewNamespace.'/';
+        $normalizedBasePath = strtr($path, ['\\' => '/']);
 
-                $fullViewPath = $path.'/'.$viewPath;
+        $registerableComponents = collect($viewNamespaces)
+            ->map(function ($viewNamespace) use ($normalizedBasePath, $aliasPrefix, $moduleComponentData) {
+                $viewPath = data_get($moduleComponentData, 'view_path').'/'.$viewNamespace.'/';
+                $normalizedViewPath = strtr($viewPath, ['\\' => '/']);
+
+                $fullViewPath = strtr($normalizedBasePath.'/'.$normalizedViewPath, ['//' => '/']);
 
                 if (! \File::isDirectory($fullViewPath)) {
                     return [];
@@ -76,9 +79,11 @@ class ModuleVoltComponentRegistry
 
                 $fileToComponents = collect(\File::allFiles($fullViewPath))
                     ->filter(fn($file) => str_ends_with($file->getFilename(), '.blade.php'))
-                    ->map(function ($file) use ($aliasPrefix, $viewPath) {
-                        $view = (string) Str::of($file->getPathname())
-                            ->afterLast($viewPath)
+                    ->map(function ($file) use ($aliasPrefix, $normalizedViewPath) {
+                        $normalizedFilePath = strtr($file->getPathname(), ['\\' => '/']);
+
+                        $view = (string) Str::of($normalizedFilePath)
+                            ->afterLast($normalizedViewPath)
                             ->replace(['/', '.blade.php'], ['.', ''])
                             ->explode('.')
                             ->map([Str::class, 'kebab'])
@@ -90,7 +95,7 @@ class ModuleVoltComponentRegistry
                             'aliasPrefix' => $aliasPrefix,
                             'view' => $view,
                             'alias' => $alias,
-                            'path' => $file->getPathname(),
+                            'path' => $normalizedFilePath,
                         ];
                     })
                     ->values()
@@ -106,7 +111,15 @@ class ModuleVoltComponentRegistry
 
     public function getModuleComponentData($moduleName = null)
     {
-        $modulePath = $moduleName ? \Module::getModulePath($moduleName) : null;
+        $modulePath = null;
+
+        if ($moduleName) {
+            if (class_exists(\Nwidart\Modules\Facades\Module::class)) {
+                $modulePath = \Nwidart\Modules\Facades\Module::getModulePath($moduleName);
+            } elseif (class_exists('Module')) {
+                $modulePath = \Module::getModulePath($moduleName);
+            }
+        }
 
         $moduleResourceViewPath = config('modules.paths.generator.views.path', 'resources/views');
 
@@ -157,13 +170,23 @@ class ModuleVoltComponentRegistry
 
     public function component($alias, $path)
     {
+        if (! class_exists(\Livewire\Volt\ComponentFactory::class)) {
+            return false;
+        }
+
         $componentClass = app(\Livewire\Volt\ComponentFactory::class)->make($alias, $path);
 
         Livewire::component($alias, $componentClass);
+
+        return true;
     }
 
     public function resolveComponent($component)
     {
+        if (! class_exists(\Livewire\Volt\ComponentFactory::class)) {
+            return null;
+        }
+
         $isModuleView = count(explode('::', $component)) == 2;
 
         if (! $isModuleView) {

@@ -9,28 +9,62 @@ class Decomposer
 {
     protected $dependencies = ['livewire/livewire', 'nwidart/laravel-modules'];
 
-    public static function getComposerData()
+    protected static function getCandidateRoots()
     {
-        try {
-            $composer = (new Filesystem())->get(base_path('composer.lock'));
+        $roots = [
+            base_path(),
+            getcwd(),
+            realpath(__DIR__.'/../..'),
+        ];
 
-            return collect(data_get(json_decode($composer, true), 'packages'));
-        } catch (\Exception $e) {
-            return collect([]);
+        return array_values(array_unique(array_filter($roots, function ($root) {
+            return is_string($root) && $root !== '';
+        })));
+    }
+
+    public static function getComposerData($root = null)
+    {
+        $roots = $root ? [$root] : self::getCandidateRoots();
+
+        foreach ($roots as $candidate) {
+            $composerLock = rtrim($candidate, "\\/").'/composer.lock';
+
+            if (! (new Filesystem())->exists($composerLock)) {
+                continue;
+            }
+
+            try {
+                $composer = (new Filesystem())->get($composerLock);
+
+                return collect(data_get(json_decode($composer, true), 'packages'));
+            } catch (\Exception $e) {
+                continue;
+            }
         }
+
+        return collect([]);
     }
 
     public static function getPackage($packageName)
     {
-        $packages = self::getComposerData();
+        foreach (self::getCandidateRoots() as $root) {
+            $vendorPath = rtrim($root, "\\/")."/vendor/{$packageName}";
 
-        if (! \File::isDirectory(base_path("/vendor/{$packageName}"))) {
-            return null;
+            if (! \File::isDirectory($vendorPath)) {
+                continue;
+            }
+
+            $packages = self::getComposerData($root);
+
+            $version = $packages->firstWhere('name', $packageName)['version'] ?? null;
+
+            return (object) [
+                'name' => $packageName,
+                'version' => $version ? Str::after($version, 'v') : null,
+            ];
         }
 
-        $version = $packages->firstWhere('name', $packageName)['version'] ?? null;
-
-        return (object) ['name' => $packageName, 'version' => \Str::after($version, 'v')];
+        return null;
     }
 
     public static function hasPackage($packageName)

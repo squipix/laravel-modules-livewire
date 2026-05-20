@@ -37,7 +37,7 @@ trait CommandHelper
             return 'sfc';
         }
 
-        return $default ?? config('livewire.make_command.type', 'sfc');
+        return $default ?? config('modules-livewire.make_command.type', config('livewire.make_command.type', 'sfc'));
     }
 
     protected function isSfc()
@@ -235,24 +235,33 @@ trait CommandHelper
             return false;
         }
 
-        if (preg_match('/[\\\\\/]/', $viewOption)) {
+        $normalized = strtr($viewOption, ['\\' => '/']);
+
+        if (str_starts_with($normalized, '/') || preg_match('/^[A-Za-z]:\//', $normalized)) {
             $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
-            $this->line('<fg=red;options=bold>The --view option must use dot notation only.</>');
+            $this->line('<fg=red;options=bold>The --view option must be a relative path.</>');
 
             return false;
         }
 
-        if (! preg_match('/^[A-Za-z0-9_.-]+$/', $viewOption)) {
+        if (str_contains($normalized, "\0")) {
             $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
             $this->line('<fg=red;options=bold>The --view option contains invalid characters.</>');
 
             return false;
         }
 
-        $segments = explode('.', $viewOption);
+        if (! preg_match('/^[A-Za-z0-9._\/-]+$/', $normalized)) {
+            $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+            $this->line('<fg=red;options=bold>The --view option contains invalid characters.</>');
+
+            return false;
+        }
+
+        $segments = explode('/', strtr($normalized, ['.' => '/']));
 
         foreach ($segments as $segment) {
-            if ($segment === '' || $segment === '..') {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
                 $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
                 $this->line('<fg=red;options=bold>The --view option must not include traversal segments.</>');
 
@@ -260,7 +269,7 @@ trait CommandHelper
             }
         }
 
-        return $viewOption;
+        return $normalized;
     }
 
     protected function normalizeStubOption($stubOption)
@@ -284,6 +293,13 @@ trait CommandHelper
         if ($normalized === '' || str_contains($normalized, "\0")) {
             $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
             $this->line('<fg=red;options=bold>The --stub option is invalid.</>');
+
+            return false;
+        }
+
+        if (str_starts_with($normalized, '/') || preg_match('/^[A-Za-z]:\//', $normalized)) {
+            $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+            $this->line('<fg=red;options=bold>The --stub option must be a relative path.</>');
 
             return false;
         }

@@ -22,7 +22,7 @@ class LivewireComponentRenderTest extends TestCase
         ])->assertExitCode(0);
 
         $componentClass = 'Modules\Core\Livewire\Pages\AboutPage';
-        $componentAlias = 'core::pages.test-page';
+        $componentAlias = 'core::pages.about-page';
 
         $this->assertFileExists(base_path('Modules/Core/app/Livewire/Pages/AboutPage.php'));
 
