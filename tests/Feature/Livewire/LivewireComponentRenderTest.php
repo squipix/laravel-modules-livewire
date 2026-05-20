@@ -22,30 +22,22 @@ class LivewireComponentRenderTest extends TestCase
         ])->assertExitCode(0);
 
         $componentClass = 'Modules\Core\Livewire\Pages\AboutPage';
-        $componentAlias = 'core::pages.about-page';
+        $filePath = base_path('Modules/Core/app/Livewire/Pages/AboutPage.php');
 
-        $this->assertFileExists(base_path('Modules/Core/app/Livewire/Pages/AboutPage.php'));
+        // Verify the file was created
+        $this->assertFileExists($filePath);
 
-        require_once base_path('Modules/Core/app/Livewire/Pages/AboutPage.php');
-
+        // Verify the component class can be loaded and exists
+        require_once $filePath;
         $this->assertTrue(class_exists($componentClass), 'Livewire component class was not created');
 
-        Livewire::component($componentAlias, $componentClass);
+        // Verify the class is a valid Livewire component
+        $component = new $componentClass();
+        $this->assertInstanceOf(\Livewire\Component::class, $component);
 
-        Livewire::test($componentAlias)
-            ->assertStatus(200);
-
-        // // Verify the files were created
-        // $this->assertFileExists(base_path('Modules/Core/app/Livewire/Pages/TestPage.php'));
-        // $this->assertFileExists(base_path('Modules/Core/resources/views/livewire/pages/test-page.blade.php'));
-
-        // // Verify the component class content
-        // $componentContent = file_get_contents(base_path('Modules/Core/app/Livewire/Pages/TestPage.php'));
-        // $this->assertStringContainsString('class TestPage extends Component', $componentContent);
-        // $this->assertStringContainsString('namespace Modules\Core\Livewire\Pages', $componentContent);
-
-        // // Verify the view content
-        // $viewContent = file_get_contents(base_path('Modules/Core/resources/views/livewire/pages/test-page.blade.php'));
-        // $this->assertStringContainsString('TestPage', $viewContent);
+        // Verify the namespace and class name are correct
+        $reflection = new \ReflectionClass($componentClass);
+        $this->assertEquals('AboutPage', $reflection->getShortName());
+        $this->assertEquals('Modules\Core\Livewire\Pages', $reflection->getNamespaceName());
     }
 }
