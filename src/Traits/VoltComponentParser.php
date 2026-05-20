@@ -33,6 +33,16 @@ trait VoltComponentParser
 
         $this->module = $module;
 
+        if ($this->option('stub')) {
+            $normalizedStub = $this->normalizeStubOption($this->option('stub'));
+
+            if ($normalizedStub === false) {
+                return false;
+            }
+
+            $this->input->setOption('stub', $normalizedStub);
+        }
+
         $this->directories = collect(
             preg_split('/[.\/(\\\\)]+/', $this->argument('component'))
         )->map([Str::class, 'studly']);

@@ -219,4 +219,91 @@ trait CommandHelper
 
         return true;
     }
+
+    protected function normalizeViewOption($viewOption)
+    {
+        if ($viewOption === null) {
+            return null;
+        }
+
+        $viewOption = trim((string) $viewOption);
+
+        if ($viewOption === '') {
+            $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+            $this->line('<fg=red;options=bold>The --view option cannot be empty.</>');
+
+            return false;
+        }
+
+        if (preg_match('/[\\\\\/]/', $viewOption)) {
+            $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+            $this->line('<fg=red;options=bold>The --view option must use dot notation only.</>');
+
+            return false;
+        }
+
+        if (! preg_match('/^[A-Za-z0-9_.-]+$/', $viewOption)) {
+            $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+            $this->line('<fg=red;options=bold>The --view option contains invalid characters.</>');
+
+            return false;
+        }
+
+        $segments = explode('.', $viewOption);
+
+        foreach ($segments as $segment) {
+            if ($segment === '' || $segment === '..') {
+                $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+                $this->line('<fg=red;options=bold>The --view option must not include traversal segments.</>');
+
+                return false;
+            }
+        }
+
+        return $viewOption;
+    }
+
+    protected function normalizeStubOption($stubOption)
+    {
+        if ($stubOption === null) {
+            return null;
+        }
+
+        $stubOption = trim((string) $stubOption);
+
+        if ($stubOption === '') {
+            $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+            $this->line('<fg=red;options=bold>The --stub option cannot be empty.</>');
+
+            return false;
+        }
+
+        $normalized = strtr($stubOption, ['\\' => '/']);
+        $normalized = trim($normalized, '/');
+
+        if ($normalized === '' || str_contains($normalized, "\0")) {
+            $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+            $this->line('<fg=red;options=bold>The --stub option is invalid.</>');
+
+            return false;
+        }
+
+        if (! preg_match('/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/', $normalized)) {
+            $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+            $this->line('<fg=red;options=bold>The --stub option must be a relative path under stubs/.</>');
+
+            return false;
+        }
+
+        $segments = explode('/', $normalized);
+
+        if (in_array('..', $segments, true)) {
+            $this->line("<options=bold,reverse;fg=red> WHOOPS! </> 😳 \n");
+            $this->line('<fg=red;options=bold>The --stub option must not include traversal segments.</>');
+
+            return false;
+        }
+
+        return $normalized;
+    }
 }
